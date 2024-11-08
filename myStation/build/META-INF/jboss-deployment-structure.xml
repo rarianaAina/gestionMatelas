@@ -1,0 +1,15 @@
+<jboss-deployment-structure>
+    <deployment>
+        <classloading>
+            <dependencies export="true" import="true" />
+        </classloading>
+        <dependencies>
+            <module name="org.jboss.weld.core" />
+        </dependencies>
+        <exclusions>
+            <module name="javaee.api" />
+            <module name="org.jboss.netty" />
+            <module name="org.jboss.weld.api" />
+        </exclusions>
+    </deployment>
+</jboss-deployment-structure>

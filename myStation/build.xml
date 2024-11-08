@@ -1,0 +1,46 @@
+<project name="ejb-project" basedir="." default="deploy">
+    <!-- Set paths -->
+    <property name="src.dir" value="src" />
+    <property name="build.dir" value="build" />
+    <property name="dist.dir" value="dist" />
+    <property name="lib.dir" value="lib" />
+    <property name="resources.dir" value="src/main/resources" />
+    <!-- Set WildFly home directory -->
+    <property name="wildfly.home" value="C:\Server\wildfly-10.0.0.Final" />
+    <property name="wildfly.deploy.dir" value="${wildfly.home}\standalone\deployments" />
+
+    <!-- Task to compile the EJB classes -->
+    <target name="compile" depends="clean">
+        <mkdir dir="${build.dir}" />
+        <javac srcdir="${src.dir}" destdir="${build.dir}" includeantruntime="false">
+            <classpath>
+                <fileset dir="${lib.dir}" includes="*.jar" />
+            </classpath>
+        </javac>
+        <copy todir="${build.dir}">
+            <fileset dir="${resources.dir}" />
+        </copy>
+    </target>
+
+    <!-- Task to create the EJB JAR file -->
+    <target name="jar" depends="compile">
+        <mkdir dir="${dist.dir}" />
+        <jar destfile="${dist.dir}/MyStation.jar" basedir="${build.dir}" />
+        <!-- Include external libraries into the JAR -->
+<!--        <jar destfile="${dist.dir}/MyStation-with-dependencies.jar" basedir="${build.dir}">-->
+<!--            <fileset dir="${lib.dir}" includes="*.jar" />-->
+<!--        </jar>-->
+    </target>
+
+    <!-- Task to deploy the JAR file to WildFly -->
+    <target name="deploy" depends="jar">
+        <copy file="${dist.dir}/MyStation.jar" todir="${wildfly.deploy.dir}" />
+        <echo message="Deployed MyStation.jar to WildFly." />
+    </target>
+
+    <!-- Clean the build directories -->
+    <target name="clean">
+        <delete dir="${build.dir}" />
+        <delete dir="${dist.dir}" />
+    </target>
+</project>
