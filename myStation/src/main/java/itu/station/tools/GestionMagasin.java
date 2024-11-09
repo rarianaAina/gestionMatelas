@@ -1,4 +1,8 @@
 package itu.station.tools;
+import itu.station.human.CandidatResource;
+import itu.station.human.CompetenceResource;
+import itu.station.human.EmployeResource;
+import itu.station.human.OffreEmploiResource;
 import itu.station.prelevement.PrelevementQuantity;
 import itu.station.prelevement.PrelevementQuantityResource;
 import itu.station.prelevement.PrelevementResource;
@@ -27,6 +31,10 @@ public class GestionMagasin extends Application {
         resources.add(PrelevementQuantityResource.class);
         resources.add(ProformatsResource.class);
         resources.add(CommandesResource.class);
+        resources.add(EmployeResource.class);
+        resources.add(OffreEmploiResource.class);
+        resources.add(CompetenceResource.class);
+        resources.add(CandidatResource.class);
         return resources;
     }
 }
