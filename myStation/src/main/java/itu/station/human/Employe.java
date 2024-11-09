@@ -26,9 +26,8 @@ public class Employe extends ClassMAPTable {
     private int departementId;
 
     // Constructeur avec paramètres
-    public Employe(int idEmploye, String nom, String prenom, Date dateNaissance, Date dateEmbauche, String poste,
+    public Employe(String nom, String prenom, Date dateNaissance, Date dateEmbauche, String poste,
                    String email, String telephone, String motDePasse, int departementId) {
-        this.idEmploye = idEmploye;
         this.nom = nom;
         this.prenom = prenom;
         this.dateNaissance = dateNaissance;
