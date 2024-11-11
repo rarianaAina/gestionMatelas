@@ -89,7 +89,8 @@
     <th>Bloc mère</th>
     <th>Estimation par Logique volume</th>
     <th>Estimation via PV/Volume</th>
-    <th>Minimum de Reste</th> <!-- Nouvelle colonne -->
+    <th>Minimum de Reste</th>
+    <th>Estimation par bénéfice</th>
   </tr>
   </thead>
   <tbody>
@@ -124,6 +125,13 @@
           <input type="hidden" name="idBloc" value="${bloc.idBloc}" />
           <input type="hidden" name="action" value="minimumReste" />
           <button type="submit">Minimum de Reste</button>
+        </form>
+      </td>
+      <td>
+        <form action="${pageContext.request.contextPath}/EstimationServlet" method="post">
+          <input type="hidden" name="idBloc" value="${bloc.idBloc}" />
+          <input type="hidden" name="action" value="parBenefice" />
+          <button type="submit">Par bénéfice</button>
         </form>
       </td>
     </tr>

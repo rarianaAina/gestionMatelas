@@ -32,6 +32,9 @@ public class EstimationServlet extends HttpServlet {
             } else if ("minimumReste".equals(action)) {
                 String result = minimumDeReste(connection, idBloc);
                 response.getWriter().println(result);
+            }else if ("parBenefice".equals(action)){
+                String result = formeUsuelleMaxBenefice(connection, idBloc);
+                response.getWriter().println(result);
             } else {
                 response.getWriter().println("Action non reconnue.");
             }
@@ -184,6 +187,65 @@ public class EstimationServlet extends HttpServlet {
                 .append(", Prix de vente FU: ").append(bestPricePerVolume).append(" Ar)\n");
         result.append("Prix estimé total pour le bloc (sur formes usuelles): ").append(estimatedPrice).append(" Ar\n");
         result.append("Nombre de formes usuelles possibles: ").append(numberOfFU).append("\n");
+
+        return result.toString();
+    }
+    private String formeUsuelleMaxBenefice(Connection connection, String idBloc) throws SQLException {
+        // Étape 1 : Récupérer le volume du bloc
+        String getBlocVolumeQuery = "SELECT volume FROM Blocs WHERE idBloc = ?";
+        double blocVolume = 0.0;
+
+        try (PreparedStatement stmt = connection.prepareStatement(getBlocVolumeQuery)) {
+            stmt.setString(1, idBloc);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                blocVolume = rs.getDouble("volume");
+            }
+        }
+
+        // Étape 2 : Trouver la forme usuelle avec le bénéfice maximum par unité de volume
+        String getBeneficeQuery = "SELECT tk.VOLUME, tk.PRIX_VENTE, v.MOYENNE_PONDEREE_PRIX_REV FROM TypeKidoro tk JOIN V_MOYENNE_P_PRIX_REV_KIDORO v ON tk.IDTYPEKIDORO = v.IDTYPEKIDORO";
+
+
+        double maxBeneficeParVolume = 0.0;
+        double bestVolumeFU = 0.0;
+        double bestPricePerVolume = 0.0;
+
+        try (PreparedStatement stmt = connection.prepareStatement(getBeneficeQuery)) {
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                double volumeFU = rs.getDouble("VOLUME");
+                double prixVenteFU = rs.getDouble("PRIX_VENTE");
+                double prixRevientFU = rs.getDouble("MOYENNE_PONDEREE_PRIX_REV");
+                double beneficeParVolume = prixVenteFU - prixRevientFU;
+
+                if (beneficeParVolume > maxBeneficeParVolume) {
+                    maxBeneficeParVolume = beneficeParVolume;
+                    bestVolumeFU = volumeFU;
+                    bestPricePerVolume = prixVenteFU;
+                }
+            }
+        }
+
+        // Étape 3 : Calcul du volume restant après extraction des formes usuelles
+        double remainingVolume = blocVolume;
+        int numberOfFU = 0;
+        if (remainingVolume > bestVolumeFU) {
+            numberOfFU = (int) (remainingVolume / bestVolumeFU); // Nombre de formes usuelles possibles
+            remainingVolume -= numberOfFU * bestVolumeFU; // Volume restant après extraction
+        }
+
+        // Calcul du prix estimé pour le bloc en fonction des formes usuelles
+        double estimatedPrice = numberOfFU * bestPricePerVolume;
+
+        // Résultat
+        StringBuilder result = new StringBuilder("Estimation de bénéfice maximal:\n");
+        result.append("Forme usuelle avec le bénéfice maximal: ").append(maxBeneficeParVolume)
+                .append(" (Volume: ").append(bestVolumeFU)
+                .append(", Prix de vente: ").append(bestPricePerVolume).append(" Ar)\n");
+        result.append("Prix estimé total pour le bloc (sur formes usuelles): ").append(estimatedPrice).append(" Ar\n");
+        result.append("Nombre de formes usuelles possibles: ").append(numberOfFU).append("\n");
+        result.append("Volume restant du bloc: ").append(remainingVolume).append("\n");
 
         return result.toString();
     }

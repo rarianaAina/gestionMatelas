@@ -74,7 +74,7 @@
 
             <!-- Menu déroulant Kidoro -->
             <li>
-                <a href="#">Kidoro</a>
+                <a href="#">Kidoro ETU000739</a>
                 <ul class="sub-menu">
                     <li><a href="${pageContext.request.contextPath}/index.jsp?but=pages/generer-bloc.jsp">Générer bloc</a></li>
                     <li><a href="${pageContext.request.contextPath}/index.jsp?but=pages/transformation.jsp">Transformation</a></li>

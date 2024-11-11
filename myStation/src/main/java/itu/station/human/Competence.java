@@ -12,13 +12,16 @@ public class Competence extends ClassMAPTable {
 
     private int idCompetence;
     private String nom;
-    private String description;
+    private String niveau;
+
+    private int experienceAnnees;
 
     // Constructeur avec paramètres
-    public Competence(int idCompetence, String nom, String description) {
+    public Competence(int idCompetence, String nom, String niveau, int experienceAnnees) {
         this.idCompetence = idCompetence;
         this.nom = nom;
-        this.description = description;
+        this.niveau = niveau;
+        this.experienceAnnees = experienceAnnees;
     }
 
     public int getIdCompetence() {
@@ -36,13 +39,12 @@ public class Competence extends ClassMAPTable {
     public void setNom(String nom) {
         this.nom = nom;
     }
-
-    public String getDescription() {
-        return description;
+    public String getNiveau() {
+        return niveau;
     }
 
-    public void setDescription(String description) {
-        this.description = description;
+    public void setNiveau(String niveau) {
+        this.niveau = niveau;
     }
 
     // Constructeur par défaut
@@ -60,6 +62,13 @@ public class Competence extends ClassMAPTable {
         return "idCompetence";
     }
 
+    public int getExperienceAnnees() {
+        return experienceAnnees;
+    }
+
+    public void setExperienceAnnees(int experienceAnnees) {
+        this.experienceAnnees = experienceAnnees;
+    }
     // Getters et setters
 
     // Méthode pour obtenir toutes les Compétences

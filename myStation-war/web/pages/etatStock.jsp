@@ -53,7 +53,7 @@
 </head>
 <body>
 <h2>Etat de Stock</h2>
-
+<h1> ETU000739 </h1>
 <!-- Formulaire pour appeler la servlet -->
 <form action="${pageContext.request.contextPath}/EtatStockServlet" method="GET">
   <input type="submit" value="Afficher le stock" />
@@ -84,32 +84,6 @@
   </c:forEach>
   </tbody>
 </table>
-
-<!-- Ligne ajoutée pour afficher les blocs non transformés "Bloc reste" -->
-<h3>Bloc reste</h3>
-<table border="1">
-  <thead>
-  <tr>
-    <th>ID</th>
-    <th>Volume</th>
-    <th>Type Bloc</th>
-    <th>Bloc mère</th>
-  </tr>
-  </thead>
-  <tbody>
-  <c:forEach var="bloc" items="${blocsNonTransformes}">
-    <tr>
-      <td><a>${bloc.idBloc}</a></td>
-      <td><a>${bloc.volume}</a></td>
-      <td>Transformable (Reste)</td>
-      <td>${bloc.idBLocInitial}</td>
-  </c:forEach>
-
-  <c:if test="${empty blocsNonTransformes}">
-    <tr>
-      <td colspan="7">Aucun bloc non transformé disponible.</td>
-    </tr>
-  </c:if>
 
   </tbody>
 </table>

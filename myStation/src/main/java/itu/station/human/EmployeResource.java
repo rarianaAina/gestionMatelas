@@ -1,6 +1,7 @@
 package itu.station.human;
 
 import bean.CGenUtil;
+import itu.station.tools.Commandes;
 import utilitaire.UtilDB;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -159,6 +160,43 @@ public class EmployeResource {
         }
         throw new SQLException("Unable to retrieve next ID from sequence");
     }
+
+    @GET
+    @Path("/{idEmploye}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getEmployesByEmployeId(@PathParam("idEmploye") int idEmploye, @Context HttpServletRequest request) {
+        Connection connection = null;
+        try {
+            connection = new UtilDB().GetConn("gestion", "gestion");
+
+            // Appel de la méthode pour obtenir les commandes par date
+            Employe[] employesById = getEmployesById(idEmploye, connection);
+            String jsonCommandes = Employe.toJson(employesById);
+            return Response.ok(jsonCommandes).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Une erreur est survenue lors de la récupération des commandes par date : " + e.getMessage()).build();
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+
+    public Employe[] getEmployesById(int idEmploye, Connection c) throws Exception {
+        if (c == null) {
+            c = new UtilDB().GetConn("gestion", "gestion");
+        }
+        String apresWhere = "and \"ID_EMPLOYE\" = " + idEmploye;
+        // Récupérer toutes les commandes avec une condition vide
+        return (Employe[]) CGenUtil.rechercher(new Employe(), null, null, c, apresWhere);
+    }
+
     @GET
     @Path("/{idEmploye}/competences")
     @Produces(MediaType.APPLICATION_JSON)
@@ -168,23 +206,38 @@ public class EmployeResource {
         try {
             // Établir une connexion à la base de données
             connection = new UtilDB().GetConn("gestion", "gestion");
+            System.out.println("Tonga eto");
 
             // Requête SQL pour récupérer les compétences de l'employé par ID
-            String sql = "SELECT * FROM Competence c "
-                    + "JOIN Employe_Competence ec ON c.id_Competence = ec.id_Competence "
-                    + "WHERE ec.id_Employe = ?";
+            String sql = "SELECT EC.ID_EMPLOYE, C.ID_COMPETENCE, C.NOM AS COMPETENCE, C.NIVEAU, EC.EXPERIENCE_ANNEES "
+                    + "FROM EMPLOYE_COMPETENCE EC "
+                    + "JOIN COMPETENCE C ON EC.ID_COMPETENCE = C.ID_COMPETENCE "
+                    + "WHERE EC.ID_EMPLOYE = ?";
+
+            System.out.println("Tonga ato tampoka");
             PreparedStatement stmt = connection.prepareStatement(sql);
+            System.out.println("Tonga ato tampoka 2");
             stmt.setInt(1, idEmploye);
+            System.out.println("Tonga ato tampoka 3");
 
             // Exécution de la requête
             ResultSet rs = stmt.executeQuery();
+            System.out.println("Tonga ato tampoka 4");
 
             // Remplir la liste de compétences avec les résultats de la requête
             while (rs.next()) {
                 Competence competence = new Competence();
-                competence.setIdCompetence(rs.getInt("idCompetence"));
-                competence.setNom(rs.getString("nomCompetence"));
-                // Vous pouvez ajouter d'autres champs selon votre modèle de données
+                System.out.println("Tonga eto 9");
+
+                // Récupérez chaque colonne dans le ResultSet
+                competence.setIdCompetence(rs.getInt("ID_COMPETENCE"));
+                System.out.println("Tonga eto 6");
+                competence.setNom(rs.getString("COMPETENCE"));
+                System.out.println("Tonga eto 7");
+                competence.setNiveau(rs.getString("NIVEAU"));
+                System.out.println("Tonga eto 8");
+                competence.setExperienceAnnees(rs.getInt("EXPERIENCE_ANNEES"));
+
                 competences.add(competence);
             }
 
@@ -216,4 +269,6 @@ public class EmployeResource {
             }
         }
     }
+
+
 }

@@ -23,15 +23,21 @@ public class TransformationServlet extends HttpServlet {
         int fu3 = Integer.parseInt(request.getParameter("fu3"));
         int fu4 = Integer.parseInt(request.getParameter("fu4"));
         Date date_creation = Date.valueOf(request.getParameter("dateTransformation"));
-        Double volumeResteSaisi = Double.parseDouble(request.getParameter("volume"));
+
+
 
         // Récupération des dimensions du bloc
-        double longueur = Double.parseDouble(request.getParameter("longueurReste"));
-        double largeur = Double.parseDouble(request.getParameter("largeurReste"));
-        double hauteur = Double.parseDouble(request.getParameter("hauteurReste"));
+        String longueurResteSaisi = request.getParameter("longueurReste");
+        String largeurResteSaisi = request.getParameter("largeurReste");
+        String hauteurResteSaisi = request.getParameter("hauteurReste");
+
+        double largeurReste = convertirEnMetres(largeurResteSaisi);
+        double longueurReste = convertirEnMetres(longueurResteSaisi);
+        double hauteurReste = convertirEnMetres(hauteurResteSaisi);
+
 
         try (Connection connection = new UtilDB().GetConn("mystation", "mystation")) {
-
+            Double volumeResteSaisi = calculVolume(connection, largeurReste, longueurReste, hauteurReste);
             double volumeTotal = getVolumeTotal(connection, idBloc);
             double volumeRestant = getVolumeRestant(connection, idBloc);
 
@@ -106,7 +112,7 @@ public class TransformationServlet extends HttpServlet {
             processFU(connection, idBloc, "4", fu4, date_creation);
 
             // Insérer un nouveau bloc avec les dimensions récupérées
-            String newIdBloc = insertNouveauBloc(connection, idBloc, volumeResteSaisi, longueur, largeur, hauteur);
+            String newIdBloc = insertNouveauBloc(connection, idBloc, volumeResteSaisi, longueurReste, largeurReste, hauteurReste);
             String idBlocSourceInitial = getOriginalIdBlocInitial(connection, idBloc);
             System.out.println(idBlocSourceInitial);
 
@@ -120,7 +126,7 @@ public class TransformationServlet extends HttpServlet {
             String idTransformation = insertTransformation(connection, idBloc, date_creation, volumeTotal, volumeRestant);
 
             // Insérer les restes en utilisant l'ID de transformation
-            insertRestes(connection, idTransformation, longueur, largeur, hauteur, volumeRestant, date_creation);
+            insertRestes(connection, idTransformation, longueurReste, largeurReste, hauteurReste, volumeRestant, date_creation);
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -131,7 +137,21 @@ public class TransformationServlet extends HttpServlet {
         response.sendRedirect("confirmation.jsp");
     }
 
-
+    public double convertirEnMetres(String valeurSaisie) {
+        double valeur = 0;
+        // Vérifier si une unité a été spécifiée (m ou cm)
+        if (valeurSaisie.endsWith("cm")) {
+            // Si l'unité est cm, convertir en mètres
+            valeur = Double.parseDouble(valeurSaisie.replace("cm", "")) / 100.0;
+        } else if (valeurSaisie.endsWith("m")) {
+            // Si l'unité est m, récupérer la valeur en mètres
+            valeur = Double.parseDouble(valeurSaisie.replace("m", ""));
+        } else {
+            // Si aucune unité n'est spécifiée, c'est d'office en mètres
+            valeur = Double.parseDouble(valeurSaisie);
+        }
+        return valeur;
+    }
     private void insertSourceRelation(Connection connection, String idBlocActuel, String idBlocSourceInitial, String idBlocParent) throws SQLException {
         String sql = "INSERT INTO Source (idBlocActuel, idBlocSourceInitial, idBlocParent) VALUES (?, ?, ?)";
 

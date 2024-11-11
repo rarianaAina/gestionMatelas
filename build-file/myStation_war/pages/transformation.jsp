@@ -46,12 +46,6 @@
 <body>
 <h2>Transformation</h2>
 
-<!-- Vérifier si un message d'erreur est passé -->
-<c:if test="${not empty errorMessage and errorMessage != ''}">
-  <script type="text/javascript">
-    alert("${errorMessage}");
-  </script>
-</c:if>
 
 <form action="${pageContext.request.contextPath}/traitementTransformation" method="post">
   <div>
@@ -108,21 +102,29 @@
   </div>
 
   <label for="longueurReste">Longueur :</label>
-  <input type="number" id="longueurReste" name="longueurReste" step="0.01" required oninput="calculerVolume()">
+  <input type="text" id="longueurReste" name="longueurReste" step="0.01" required oninput="calculerVolume()">
   <br><br>
 
   <label for="largeurReste">Largeur :</label>
-  <input type="number" id="largeurReste" name="largeurReste" step="0.01" required oninput="calculerVolume()">
+  <input type="text" id="largeurReste" name="largeurReste" step="0.01" required oninput="calculerVolume()">
   <br><br>
 
   <label for="hauteurReste">Hauteur :</label>
-  <input type="number" id="hauteurReste" name="hauteurReste" step="0.01" required oninput="calculerVolume()">
+  <input type="text" id="hauteurReste" name="hauteurReste" step="0.01" required oninput="calculerVolume()">
   <br><br>
 
-  <p id="volumeAffichage" style="font-weight: bold;">Volume: 0.00 m³</p> <!-- Affichage du volume ici -->
+  <p id="volumeAffichage" style="font-weight: bold; display: none;">Volume: 0.00 m³</p><!-- Affichage du volume ici -->
   <input type="hidden" id="volume" name="volume" value="0.00">
 
   <button type="submit">Procéder</button>
 </form>
+
+<!-- Vérifier si un message d'erreur est passé -->
+<c:if test="${not empty errorMessage}">
+  <script type="text/javascript">
+    alert("${errorMessage}");
+  </script>
+</c:if>
+
 </body>
 </html>

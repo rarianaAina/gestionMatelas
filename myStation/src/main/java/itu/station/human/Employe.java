@@ -4,10 +4,15 @@ import bean.CGenUtil;
 import bean.ClassMAPTable;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import itu.station.tools.Commandes;
 import utilitaire.UtilDB;
 
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Employe extends ClassMAPTable {
 
@@ -143,7 +148,62 @@ public class Employe extends ClassMAPTable {
         if (c == null) {
             c = new UtilDB().GetConn("gestion", "gestion");
         }
-        return (Employe[]) CGenUtil.rechercher(new Employe(), null, null, c, "");
+
+        List<Employe> employes = new ArrayList<>();
+        String sql = "SELECT * FROM EMPLOYE";
+
+        try (PreparedStatement stmt = c.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                Employe employe = new Employe();
+                employe.setIdEmploye(rs.getInt("ID_EMPLOYE"));
+                employe.setNom(rs.getString("NOM"));
+                employe.setPrenom(rs.getString("PRENOM"));
+                employe.setDateNaissance(rs.getDate("DATE_NAISSANCE"));
+                employe.setDateEmbauche(rs.getDate("DATE_EMBAUCHE"));
+                employe.setPoste(rs.getString("POSTE"));
+                employe.setEmail(rs.getString("EMAIL"));
+                employe.setTelephone(rs.getString("TELEPHONE"));
+                employe.setMotDePasse(rs.getString("MOT_DE_PASSE"));
+                employe.setDepartementId(rs.getInt("DEPARTEMENT_ID"));
+
+                employes.add(employe);
+            }
+        }
+
+        return employes.toArray(new Employe[0]);
+    }
+
+    public Employe[] getAllEmployesById(Connection c) throws Exception {
+        if (c == null) {
+            c = new UtilDB().GetConn("gestion", "gestion");
+        }
+
+        List<Employe> employes = new ArrayList<>();
+        String sql = "SELECT * FROM EMPLOYE";
+
+        try (PreparedStatement stmt = c.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                Employe employe = new Employe();
+                employe.setIdEmploye(rs.getInt("ID_EMPLOYE"));
+                employe.setNom(rs.getString("NOM"));
+                employe.setPrenom(rs.getString("PRENOM"));
+                employe.setDateNaissance(rs.getDate("DATE_NAISSANCE"));
+                employe.setDateEmbauche(rs.getDate("DATE_EMBAUCHE"));
+                employe.setPoste(rs.getString("POSTE"));
+                employe.setEmail(rs.getString("EMAIL"));
+                employe.setTelephone(rs.getString("TELEPHONE"));
+                employe.setMotDePasse(rs.getString("MOT_DE_PASSE"));
+                employe.setDepartementId(rs.getInt("DEPARTEMENT_ID"));
+
+                employes.add(employe);
+            }
+        }
+
+        return employes.toArray(new Employe[0]);
     }
 
     // Méthode pour convertir la liste des Employes en JSON
@@ -152,5 +212,9 @@ public class Employe extends ClassMAPTable {
 
         Gson gson = new GsonBuilder().create();
         return gson.toJson(employesRecus);
+    }
+    public static String toJson(Employe[] employes) {
+        Gson gson = new GsonBuilder().create();
+        return gson.toJson(employes);
     }
 }
