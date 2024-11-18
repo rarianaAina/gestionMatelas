@@ -138,51 +138,95 @@ public class BlocsVaovao extends ClassMAPTable {
         return (BlocsVaovao[]) CGenUtil.rechercher(new BlocsVaovao(), null, null, c, "");
     }
         // Méthode statique pour calculer le prix de revient d'un bloc, en prenant en compte les quantités et les dates
-        public static double calculerPrixRevientAvecFormule(Connection conn, String idBloc, Date dateFabrication) throws SQLException {
+        public static double calculerPrixRevientBloc(Connection conn, Date dateFabrication, String idBloc) throws SQLException {
             double prixRevientTotal = 0.0;
 
-            // Définir ici les composants et leurs quantités (selon votre formule)
-            String[] idComposants = {"idComposant1", "idComposant2", "idComposant3"};  // Liste des composants à utiliser
-            int[] quantites = {10, 20, 30};  // Quantités associées à chaque composant
+            // Requête pour récupérer le volume du bloc à partir de la table BlocsVaovao
+            String queryVolumeBloc = "SELECT Volume FROM BlocsVaovao WHERE IDBLOCSVAOVAO = ?";
+            double volumeBloc = 0.0;
+            try (PreparedStatement psVolumeBloc = conn.prepareStatement(queryVolumeBloc)) {
+                psVolumeBloc.setString(1, idBloc);
+                try (ResultSet rsVolumeBloc = psVolumeBloc.executeQuery()) {
+                    if (rsVolumeBloc.next()) {
+                        volumeBloc = rsVolumeBloc.getDouble("Volume");
+                    } else {
+                        throw new SQLException("Volume du bloc introuvable pour l'idBloc: " + idBloc);
+                    }
+                }
+            }
 
-            // On suppose que ces composants et quantités sont prédéfinis pour tous les blocs
-            for (int i = 0; i < idComposants.length; i++) {
-                String idComposant = idComposants[i];
-                int qteNecessaire = quantites[i];
+            // Requête pour récupérer les composants nécessaires pour la fabrication du bloc
+            String queryComposants = "SELECT idComposants, qte FROM Composants";
+            try (PreparedStatement psComposants = conn.prepareStatement(queryComposants);
+                 ResultSet rsComposants = psComposants.executeQuery()) {
 
-                // Récupérer le prix du composant à la date de fabrication
-                double prixComposant = 0.0;
-                int qteRestante = qteNecessaire;
+                // Pour chaque composant, récupérer les achats et calculer le prix de revient
+                while (rsComposants.next()) {
+                    String idComposant = rsComposants.getString("idComposant");
+                    int qteNecessaire = rsComposants.getInt("qte");
 
-                // Pour chaque achat de composant, récupérer les informations de prix et quantité
-                String queryAchats = "SELECT PUAchat, qte, DateAchat FROM Achats WHERE idComposants = ? AND DateAchat <= ? ORDER BY DateAchat ASC";
-                try (PreparedStatement psAchats = conn.prepareStatement(queryAchats)) {
-                    psAchats.setString(1, idComposant);
-                    psAchats.setDate(2, dateFabrication);
+                    // Calculer le prix de revient pour ce composant
+                    double prixComposant = 0.0;
+                    int qteRestante = qteNecessaire;
 
-                    try (ResultSet rsAchats = psAchats.executeQuery()) {
-                        while (rsAchats.next() && qteRestante > 0) {
-                            double prixAchat = rsAchats.getDouble("PUAchat");
-                            int qteAchetee = rsAchats.getInt("qte");
+                    // Requête pour récupérer les achats disponibles pour ce composant avant ou à la date de fabrication
+                    String queryAchats = "SELECT PUAchat, qte, DateAchat FROM Achats WHERE idComposants = ? AND DateAchat <= ? ORDER BY DateAchat ASC";
+                    try (PreparedStatement psAchats = conn.prepareStatement(queryAchats)) {
+                        psAchats.setString(1, idComposant);
+                        psAchats.setDate(2, dateFabrication);
 
-                            // Si la quantité achetée est suffisante pour couvrir la quantité restante
-                            if (qteAchetee >= qteRestante) {
-                                prixComposant += prixAchat * qteRestante;
-                                qteRestante = 0; // La quantité nécessaire est maintenant satisfaite
-                            } else {
-                                prixComposant += prixAchat * qteAchetee;
-                                qteRestante -= qteAchetee; // Réduire la quantité restante
+                        try (ResultSet rsAchats = psAchats.executeQuery()) {
+                            // Traiter les achats successifs pour ce composant
+                            while (rsAchats.next() && qteRestante > 0) {
+                                double prixAchat = rsAchats.getDouble("PUAchat");
+                                int qteAchetee = rsAchats.getInt("qte");
+
+                                // Si la quantité achetée est suffisante pour couvrir la quantité restante
+                                if (qteAchetee >= qteRestante) {
+                                    prixComposant += prixAchat * qteRestante;
+                                    qteRestante = 0; // La quantité nécessaire est maintenant satisfaite
+                                } else {
+                                    prixComposant += prixAchat * qteAchetee;
+                                    qteRestante -= qteAchetee; // Réduire la quantité restante
+                                }
                             }
                         }
                     }
-                }
 
-                // Appliquer la formule : PrixRevient += (prixComposant * quantité)
-                prixRevientTotal += prixComposant * qteNecessaire; // Multiplier par la quantité nécessaire
+                    // Ajuster le prix du composant en fonction du volume du bloc
+                    prixComposant *= volumeBloc;
+
+                    // Ajouter le prix de ce composant au prix total du bloc
+                    prixRevientTotal += prixComposant;
+                }
             }
 
             return prixRevientTotal;
         }
+    public static double prixDeReviensParSource(Connection conn, String idSource, Date dateFabrication) throws SQLException {
+        double prixTotal = 0.0;
+
+        // Requête pour récupérer les blocs associés à l'idSource
+        String queryBlocs = "SELECT IDBLOCSVAOVAO FROM BLOCSVAOVAO WHERE IDSOURCE = ?";
+
+        try (PreparedStatement psBlocs = conn.prepareStatement(queryBlocs)) {
+            psBlocs.setString(1, idSource);
+            try (ResultSet rsBlocs = psBlocs.executeQuery()) {
+
+                while (rsBlocs.next()) {
+                    String idBloc = rsBlocs.getString("IDBLOCSVAOVAO");
+
+                    // Calculer le prix de revient pour ce bloc (le volume est déjà pris en compte dans cette fonction)
+                    double prixBloc = calculerPrixRevientBloc(conn,dateFabrication, idBloc);
+
+                    // Ajouter le prix de revient du bloc au total
+                    prixTotal += prixBloc;
+                }
+            }
+        }
+
+        return prixTotal;
+    }
 
 }
 
