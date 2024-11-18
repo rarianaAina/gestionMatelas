@@ -14,6 +14,11 @@
         <webroots>
           <root url="file://$MODULE_DIR$/../build-file/myStation_war" relative="/" />
         </webroots>
+        <sourceRoots>
+          <root url="file://$MODULE_DIR$/../src/main/java" />
+          <root url="file://$MODULE_DIR$/../src/main/resources" />
+          <root url="file://$MODULE_DIR$/src/main/java" />
+        </sourceRoots>
       </configuration>
     </facet>
     <facet type="web" name="Web2">
@@ -25,10 +30,9 @@
           <root url="file://$MODULE_DIR$/src/webapp" relative="/" />
         </webroots>
         <sourceRoots>
-          <root url="file://$MODULE_DIR$/src/main/java" />
           <root url="file://$MODULE_DIR$/../src/main/java" />
           <root url="file://$MODULE_DIR$/../src/main/resources" />
-          <root url="file://$MODULE_DIR$/../target/generated-sources/annotations" />
+          <root url="file://$MODULE_DIR$/src/main/java" />
         </sourceRoots>
       </configuration>
     </facet>

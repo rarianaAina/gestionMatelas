@@ -5,8 +5,10 @@ import bean.ClassMAPTable;
 import utilitaire.UtilDB;
 
 import java.sql.*;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class BlocsVaovao extends ClassMAPTable {
 
@@ -226,6 +228,107 @@ public class BlocsVaovao extends ClassMAPTable {
         }
 
         return prixTotal;
+    }
+
+    public void insererBlocs(Connection conn, double[] longueurs, double[] largeurs, double[] hauteurs, double[] prixReviendPRA) throws SQLException {
+        // Assurez-vous que la connexion est valide
+        if (conn == null) {
+            conn = new UtilDB().GetConn("mystation", "mystation");
+        }
+
+        // Insérer les 4 premières lignes depuis les données du formulaire
+        double prixRevientMoyenne = insererPremieresLignes(conn, longueurs, largeurs, hauteurs, prixReviendPRA);
+
+        // Générateur de nombres aléatoires
+        Random random = new Random();
+
+        // Insérer les 999 996 autres lignes avec un prix de revient aléatoire autour de la moyenne
+        String insertQuery = "INSERT INTO BLOCSVAOVAO (IDBLOCSVAOVAO, LONGUEUR, LARGEUR, HAUTEUR, VOLUME, PRIX_REVIENT, DATE_FABRICATION, HEURE_FABRICATION, IDSOURCE, PRIX_REVIENT_PRA) "
+                + "VALUES (blocsvaovao_seq.NEXTVAL, ?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(insertQuery)) {
+            for (int i = 0; i < 999996; i++) {
+                // Générer des valeurs aléatoires pour les dimensions
+                double longueur = 20 + (random.nextDouble() * 5);  // entre 20 et 25
+                double largeur = 5 + (random.nextDouble() * 2);   // entre 5 et 7
+                double hauteur = 10 + (random.nextDouble() * 5);   // entre 10 et 15
+
+                // Calculer le volume du bloc
+                double volume = longueur * largeur * hauteur;
+
+                // Calculer un prix de revient aléatoire autour de la moyenne, avec une variation de -10% à +10%
+                double variation = 1 + (random.nextDouble() * 0.2 - 0.1);  // variation entre -10% et +10%
+                double prixRevientPra = prixRevientMoyenne * variation;
+
+                // Obtenir l'heure actuelle
+                String heureFabrication = LocalTime.now().toString().substring(0, 8); // HH:MM:SS format
+
+                // Insérer la ligne dans la table
+                ps.setDouble(1, longueur);
+                ps.setDouble(2, largeur);
+                ps.setDouble(3, hauteur);
+                ps.setDouble(4, volume);
+                ps.setDouble(5, prixRevientPra);
+                ps.setString(6, heureFabrication);  // Heure actuelle
+                ps.setString(7, "ID_12345");  // Exemple pour IDSource, vous pouvez ajuster selon votre logique
+                ps.setString(8, prixRevientPra + "_PRA"); // Exemple pour PRIX_REVIENT_PRA, ajustez selon votre logique
+
+                ps.addBatch();
+
+                // Exécuter le batch tous les 1000 inserts
+                if ((i + 1) % 1000 == 0) {
+                    ps.executeBatch();
+                }
+            }
+            // Exécuter les restes du batch
+            ps.executeBatch();
+        }
+    }
+
+    double insererPremieresLignes(Connection conn, double[] longueurs, double[] largeurs, double[] hauteurs, double[] prixReviendPRA) throws SQLException {
+        // Assurez-vous que les tableaux contiennent bien 4 éléments
+        if (longueurs.length != 4 || largeurs.length != 4 || hauteurs.length != 4 || prixReviendPRA.length != 4) {
+            throw new IllegalArgumentException("Les tableaux doivent contenir 4 éléments.");
+        }
+
+        double prixRevientMoyenne = 0.0;
+
+        // Insérer les 4 premières lignes avec les données du formulaire
+        String insertQuery = "INSERT INTO BLOCSVAOVAO (IDBLOCSVAOVAO, LONGUEUR, LARGEUR, HAUTEUR, VOLUME, PRIX_REVIENT, DATE_FABRICATION, HEURE_FABRICATION, IDSOURCE, PRIX_REVIENT_PRA) "
+                + "VALUES (blocsvaovao_seq.NEXTVAL, ?, ?, ?, ?, ?, CURRENT_DATE, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(insertQuery)) {
+            for (int i = 0; i < 4; i++) {
+                double longueur = longueurs[i];
+                double largeur = largeurs[i];
+                double hauteur = hauteurs[i];
+                double prixRevientPra = prixReviendPRA[i];
+
+                // Calculer le volume du bloc
+                double volume = longueur * largeur * hauteur;
+
+                // Ajouter à la moyenne des prix de revient
+                prixRevientMoyenne += prixRevientPra;
+
+                // Obtenir l'heure actuelle
+                String heureFabrication = LocalTime.now().toString().substring(0, 8); // HH:MM:SS format
+
+                // Insérer la ligne dans la table
+                ps.setDouble(1, longueur);
+                ps.setDouble(2, largeur);
+                ps.setDouble(3, hauteur);
+                ps.setDouble(4, volume);
+                ps.setDouble(5, prixRevientPra);
+                ps.setString(6, heureFabrication);  // Heure actuelle
+                ps.setString(7, "ID_12345");  // Exemple pour IDSource
+                ps.setString(8, prixRevientPra + "_PRA"); // Exemple pour PRIX_REVIENT_PRA
+
+                ps.addBatch();
+            }
+            // Exécuter le batch
+            ps.executeBatch();
+        }
+
+        // Calculer la moyenne des prix de revient des 4 premières lignes
+        return prixRevientMoyenne / 4.0;
     }
 
 }

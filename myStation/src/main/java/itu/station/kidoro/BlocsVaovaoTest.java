@@ -139,8 +139,22 @@ public class BlocsVaovao extends ClassMAPTable {
         return (BlocsVaovao[]) CGenUtil.rechercher(new BlocsVaovao(), null, null, c, "");
     }
     // Méthode statique pour calculer le prix de revient d'un bloc, en prenant en compte les quantités et les dates
-    public static double calculerPrixRevientBloc(Connection conn, Date dateFabrication) throws SQLException {
+    public static double calculerPrixRevientBloc(Connection conn, Date dateFabrication, String idBloc) throws SQLException {
         double prixRevientTotal = 0.0;
+
+        // Requête pour récupérer le volume du bloc à partir de la table BlocsVaovao
+        String queryVolumeBloc = "SELECT Volume FROM BlocsVaovao WHERE IDBLOCSVAOVAO = ?";
+        double volumeBloc = 0.0;
+        try (PreparedStatement psVolumeBloc = conn.prepareStatement(queryVolumeBloc)) {
+            psVolumeBloc.setString(1, idBloc);
+            try (ResultSet rsVolumeBloc = psVolumeBloc.executeQuery()) {
+                if (rsVolumeBloc.next()) {
+                    volumeBloc = rsVolumeBloc.getDouble("Volume");
+                } else {
+                    throw new SQLException("Volume du bloc introuvable pour l'idBloc: " + idBloc);
+                }
+            }
+        }
 
         // Requête pour récupérer les composants nécessaires pour la fabrication du bloc
         String queryComposants = "SELECT idComposants, qte FROM Composants";
@@ -180,6 +194,9 @@ public class BlocsVaovao extends ClassMAPTable {
                     }
                 }
 
+                // Ajuster le prix du composant en fonction du volume du bloc
+                prixComposant *= volumeBloc;
+
                 // Ajouter le prix de ce composant au prix total du bloc
                 prixRevientTotal += prixComposant;
             }
@@ -187,7 +204,30 @@ public class BlocsVaovao extends ClassMAPTable {
 
         return prixRevientTotal;
     }
+    public static double prixDeReviensParSource(Connection conn, String idSource, Date dateFabrication) throws SQLException {
+        double prixTotal = 0.0;
 
+        // Requête pour récupérer les blocs associés à l'idSource
+        String queryBlocs = "SELECT IDBLOCSVAOVAO FROM BLOCSVAOVAO WHERE IDSOURCE = ?";
+
+        try (PreparedStatement psBlocs = conn.prepareStatement(queryBlocs)) {
+            psBlocs.setString(1, idSource);
+            try (ResultSet rsBlocs = psBlocs.executeQuery()) {
+
+                while (rsBlocs.next()) {
+                    String idBloc = rsBlocs.getString("IDBLOCSVAOVAO");
+
+                    // Calculer le prix de revient pour ce bloc (le volume est déjà pris en compte dans cette fonction)
+                    double prixBloc = calculerPrixRevientBloc(conn,dateFabrication, idBloc);
+
+                    // Ajouter le prix de revient du bloc au total
+                    prixTotal += prixBloc;
+                }
+            }
+        }
+
+        return prixTotal;
+    }
 
 }
 
