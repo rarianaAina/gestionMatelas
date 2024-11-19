@@ -83,6 +83,8 @@
                     <li><a href="${pageContext.request.contextPath}/index.jsp?but=pages/blocs.jsp">Blocs</a></li>
                     <li><a href="${pageContext.request.contextPath}/index.jsp?but=pages/updatePR.jsp">Update</a></li>
                     <li><a href="${pageContext.request.contextPath}/index.jsp?but=pages/deleteDonnees.jsp">Suppression</a></li>
+                    <li><a href="${pageContext.request.contextPath}/index.jsp?but=pages/uploadData.jsp">Ajout datas</a></li>
+                    <li><a href="${pageContext.request.contextPath}/index.jsp?but=pages/afficherPrix.jsp">PR Machines</a></li>
                 </ul>
             </li>
         </ul>

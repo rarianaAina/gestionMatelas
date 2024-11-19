@@ -1,10 +1,54 @@
+/*
 package itu.station.kidoro;
 
 import utilitaire.UtilDB;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+
+import java.sql.*;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class Main {
+
+    public static void main(String[] args) {
+        // Exemple de longueurs, largeurs, hauteurs et prixReviendPRA
+        double[] longueurs = {25, 30, 35, 40};  // Dimensions de test
+        double[] largeurs = {6, 7, 8, 9};
+        double[] hauteurs = {12, 13, 14, 15};
+        double[] prixReviendPRA = {10000.0, 15000.0, 20000.0, 25000.0};  // Prix de revient pratique
+
+        // Connexion à la base de données
+        Connection conn = null;
+        try {
+            // Obtenir la connexion via UtilDB ou autre méthode
+            conn = new UtilDB().GetConn("mystation", "mystation");
+
+            // Créer une instance de BlocsVaovao pour appeler la méthode insererBlocs
+            BlocsVaovao blocsVaovao = new BlocsVaovao();
+
+            // Appeler la fonction insererBlocs
+            blocsVaovao.insererBlocs(conn, longueurs, largeurs, hauteurs, prixReviendPRA);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            // Assurez-vous de fermer la connexion après l'utilisation
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+}*/
+
+package itu.station.kidoro;
+
+import utilitaire.UtilDB;
+
+import java.sql.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -20,47 +64,29 @@ public class Main {
         // Utiliser try-with-resources pour gérer la connexion automatiquement
         try (Connection conn = utilDB.GetConn("mystation", "mystation")) {
 
-            // Récupérer la liste des machines dans la table 'machines'
-            String queryMachines = "SELECT idMachine FROM machines"; // Assurez-vous que 'machines' contient bien l'ID des machines
-            try (PreparedStatement psMachines = conn.prepareStatement(queryMachines);
-                 ResultSet rsMachines = psMachines.executeQuery()) {
+            // Récupérer la liste des blocs dans la table 'BLOCSVAOVAO'
+            String queryBlocs = "SELECT IDBLOCSVAOVAO, DATE_FABRICATION FROM BLOCSVAOVAO";
+            try (PreparedStatement psBlocs = conn.prepareStatement(queryBlocs);
+                 ResultSet rsBlocs = psBlocs.executeQuery()) {
 
-                // Pour chaque machine, récupérer et afficher le prix de revient
-                while (rsMachines.next()) {
-                    String idMachine = rsMachines.getString("idMachine");
+                // Pour chaque bloc, calculer et mettre à jour le prix de revient
+                while (rsBlocs.next()) {
+                    String idBloc = rsBlocs.getString("IDBLOCSVAOVAO");
+                    Date dateFabrication = rsBlocs.getDate("DATE_FABRICATION");
 
-                    // Récupérer et afficher le prix de revient pour cette machine
-                    double prixTotalMachine = prixDeReviensParMachine(conn, idMachine);
-                    System.out.println("Le prix de revient pour la machine " + idMachine + " est : " + prixTotalMachine);
+                    // Calculer le prix de revient pour ce bloc en appelant la méthode existante dans BlocsVaovao
+                    double prixRevient = BlocsVaovao.calculerPrixRevientBloc(conn, dateFabrication, idBloc);
+                    System.out.println("Prix de revient pour le bloc " + idBloc + " : " + prixRevient);
+
+                    // Mettre à jour le prix de revient dans la base de données en appelant la méthode existante dans BlocsVaovao
+                    BlocsVaovao.mettreAJourPrixRevientBloc(conn);
                 }
             }
 
         } catch (SQLException e) {
             // Gérer les exceptions liées à la base de données
-            logger.log(Level.SEVERE, "Erreur lors de la récupération des prix de revient des machines", e);
+            logger.log(Level.SEVERE, "Erreur lors de la mise à jour des prix de revient des blocs", e);
         }
-    }
-
-    // La méthode pour calculer le prix de revient pour chaque machine
-    public static double prixDeReviensParMachine(Connection conn, String idMachine) throws SQLException {
-        double prixTotal = 0.0;
-
-        // Requête pour sommer les prix de revient associés à chaque idMachine
-        String queryPrixTotalMachine =
-                "SELECT SUM(PRIX_REVIENT) AS PrixTotal " +
-                        "FROM BLOCSVAOVAO " +
-                        "WHERE IDSOURCE = ?";  // Assurez-vous que la table BLOCSVAOVAO contient une colonne 'IDMACHINE'
-
-        try (PreparedStatement ps = conn.prepareStatement(queryPrixTotalMachine)) {
-            ps.setString(1, idMachine);  // L'ID de la machine
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    prixTotal = rs.getDouble("PrixTotal");
-                }
-            }
-        }
-
-        return prixTotal;
     }
 }
+

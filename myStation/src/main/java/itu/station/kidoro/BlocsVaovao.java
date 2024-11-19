@@ -5,11 +5,10 @@ import bean.ClassMAPTable;
 import utilitaire.UtilDB;
 
 import java.sql.*;
+import java.sql.Date;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class BlocsVaovao extends ClassMAPTable {
 
@@ -22,10 +21,10 @@ public class BlocsVaovao extends ClassMAPTable {
     private Date dateFabrication;
     private String heureFabrication;
     private String idSource;
-    private String prixRevientPra;
+    private Double prixRevientPra;
 
     public BlocsVaovao(String idBloc, double longueur, double largeur, double hauteur, double volume, double prixDeRevient,
-                       Date dateFabrication, String heureFabrication, String idSource, String prixRevientPra) {
+                       Date dateFabrication, String heureFabrication, String idSource, double prixRevientPra) {
         this.idBloc = idBloc;
         this.longueur = longueur;
         this.largeur = largeur;
@@ -125,11 +124,11 @@ public class BlocsVaovao extends ClassMAPTable {
         this.idSource = idSource;
     }
 
-    public String getPrixRevientPra() {
+    public Double getPrixRevientPra() {
         return prixRevientPra;
     }
 
-    public void setPrixRevientPra(String prixRevientPra) {
+    public void setPrixRevientPra(Double prixRevientPra) {
         this.prixRevientPra = prixRevientPra;
     }
 
@@ -301,7 +300,7 @@ public class BlocsVaovao extends ClassMAPTable {
             LocalDate today = LocalDate.now();
             long totalDays = today.toEpochDay() - startDate.toEpochDay();
 
-            for (int i = 0; i < 20; i++) {
+            for (int i = 0; i < 999996; i++) {
                 // Dimensions aléatoires
                 double longueur = 20 + (random.nextDouble() * 5);
                 double largeur = 5 + (random.nextDouble() * 2);
@@ -330,7 +329,7 @@ public class BlocsVaovao extends ClassMAPTable {
                 ps.setDate(6, java.sql.Date.valueOf(randomDate));
                 ps.setString(7, randomTime.toString());
                 ps.setString(8, idSource);
-                ps.setString(9, prixRevientPra + "_PRA");
+                ps.setDouble(9, prixRevientPra);
 
                 ps.addBatch();
 
@@ -394,7 +393,7 @@ public class BlocsVaovao extends ClassMAPTable {
                 ps.setDate(6, java.sql.Date.valueOf(randomDate));
                 ps.setString(7, randomTime.toString());
                 ps.setString(8, idSource);
-                ps.setString(9, prixRevientPra + "_PRA");
+                ps.setDouble(9, prixRevientPra);
 
                 ps.addBatch();
             }
@@ -473,6 +472,31 @@ public class BlocsVaovao extends ClassMAPTable {
         }
     }
 
+    public static Map<String, Double> calculerPrixTotalParSource(Connection conn) throws SQLException {
+        Map<String, Double> prixTotalParSource = new HashMap<>();
+
+        // Requête SQL pour récupérer le total de PRIX_REVIENT_PRA pour chaque IDSOURCE
+        String query = "SELECT IDSOURCE, SUM(PRIX_REVIENT_PRA) AS TOTAL_PRA " +
+                "FROM BLOCSVAOVAO " +
+                "GROUP BY IDSOURCE";
+
+        // Exécution de la requête
+        try (PreparedStatement ps = conn.prepareStatement(query);
+             ResultSet rs = ps.executeQuery()) {
+
+            // Parcours des résultats et ajout dans la map
+            while (rs.next()) {
+                String idSource = rs.getString("IDSOURCE");
+                double totalPra = rs.getDouble("TOTAL_PRA");
+
+                // Ajout du résultat dans la map
+                prixTotalParSource.put(idSource, totalPra);
+            }
+        }
+
+        // Retourne la map contenant le total PRIX_REVIENT_PRA pour chaque IDSOURCE
+        return prixTotalParSource;
+    }
 
 }
 

@@ -8,7 +8,7 @@
 </head>
 <body>
 <h1>Importer un fichier CSV</h1>
-<form action="UploadCSVServlet" method="post" enctype="multipart/form-data">
+<form action="${pageContext.request.contextPath}/UploadCSVServlet" method="post" enctype="multipart/form-data">
     <label for="fileInput">Sélectionner un fichier CSV :</label>
     <input type="file" id="fileInput" name="file" accept=".csv" required>
     <input type="submit" value="Importer">

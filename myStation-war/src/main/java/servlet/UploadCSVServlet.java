@@ -28,7 +28,19 @@ public class UploadCSVServlet extends HttpServlet {
                 if (!item.isFormField()) {
                     // Récupérer le fichier téléchargé
                     String fileName = item.getName();
-                    String filePath = getServletContext().getRealPath("/") + "uploads/" + fileName;
+                    String uploadPath = getServletContext().getRealPath("/") + "uploads";
+
+                    // Vérifiez si le dossier 'uploads' existe, sinon créez-le
+                    File uploadDir = new File(uploadPath);
+                    if (!uploadDir.exists()) {
+                        boolean dirCreated = uploadDir.mkdirs();
+                        if (!dirCreated) {
+                            throw new IOException("Impossible de créer le répertoire : " + uploadDir.getAbsolutePath());
+                        }
+                    }
+
+                    // Construire le chemin complet pour le fichier
+                    String filePath = uploadPath + File.separator + fileName;
                     File storeFile = new File(filePath);
 
                     // Sauvegarder le fichier
@@ -40,6 +52,7 @@ public class UploadCSVServlet extends HttpServlet {
                     // Rediriger vers une page de succès
                     response.sendRedirect("success.jsp");
                 }
+
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -53,54 +66,60 @@ public class UploadCSVServlet extends HttpServlet {
         Connection conn = null;
 
         try {
-            // Établir une connexion à la base de données via utilDB.GetConn
+            // Connexion à la base de données
             UtilDB utilDB = new UtilDB();
             conn = utilDB.GetConn("mystation", "mystation");
+            conn.setAutoCommit(false);
 
-            // Ignorer la première ligne (les en-têtes des colonnes)
+            // Ignorer la première ligne (en-têtes)
             br.readLine();
 
-            // Préparer la requête d'insertion
+            // Préparer la requête
             String query = "INSERT INTO BLOCSVAOVAO (IDBLOCSVAOVAO, LONGUEUR, LARGEUR, HAUTEUR, VOLUME, PRIX_REVIENT, " +
                     "DATE_FABRICATION, HEURE_FABRICATION, IDSOURCE, PRIX_REVIENT_PRA) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement pstmt = conn.prepareStatement(query)) {
 
-                // Lire chaque ligne du fichier CSV
+                // Lire chaque ligne du CSV
                 while ((line = br.readLine()) != null) {
                     String[] values = line.split(";");
+                    try {
+                        // Nettoyer et attribuer chaque valeur
+                        pstmt.setString(1, cleanValue(values[0])); // IDBLOCSVAOVAO
+                        pstmt.setDouble(2, Double.parseDouble(cleanValue(values[1]))); // LONGUEUR
+                        pstmt.setDouble(3, Double.parseDouble(cleanValue(values[2]))); // LARGEUR
+                        pstmt.setDouble(4, Double.parseDouble(cleanValue(values[3]))); // HAUTEUR
+                        pstmt.setDouble(5, Double.parseDouble(cleanValue(values[4]))); // VOLUME
+                        pstmt.setDouble(6, Double.parseDouble(cleanValue(values[5]))); // PRIX_REVIENT
+                        pstmt.setDate(7, Date.valueOf(cleanValue(values[6]))); // DATE_FABRICATION
+                        pstmt.setString(8, cleanValue(values[7])); // HEURE_FABRICATION
+                        pstmt.setString(9, cleanValue(values[8])); // IDSOURCE
+                        pstmt.setString(10, cleanValue(values[9])); // PRIX_REVIENT_PRA
 
-                    // Traiter chaque ligne et insérer dans la table
-                    pstmt.setInt(1, Integer.parseInt(values[0]));  // IDBLOCSVAOVAO
-                    pstmt.setDouble(2, Double.parseDouble(values[1]));  // LONGUEUR
-                    pstmt.setDouble(3, Double.parseDouble(values[2]));  // LARGEUR
-                    pstmt.setDouble(4, Double.parseDouble(values[3]));  // HAUTEUR
-                    pstmt.setDouble(5, Double.parseDouble(values[4]));  // VOLUME
-                    pstmt.setDouble(6, Double.parseDouble(values[5]));  // PRIX_REVIENT
-                    pstmt.setDate(7, Date.valueOf(values[6]));  // DATE_FABRICATION
-                    pstmt.setTime(8, Time.valueOf(values[7]));  // HEURE_FABRICATION
-                    pstmt.setString(9, values[8]);  // IDSOURCE
-                    pstmt.setDouble(10, Double.parseDouble(values[9]));  // PRIX_REVIENT_PRA
-
-                    // Ajouter la requête d'insertion dans le batch
-                    pstmt.addBatch();
+                        pstmt.addBatch();
+                    } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+                        System.err.println("Erreur de conversion ou ligne invalide : " + line);
+                    }
                 }
 
-                // Exécuter le batch d'insertion
+                // Exécuter le batch
                 pstmt.executeBatch();
-
-                // Valider les modifications
                 conn.commit();
             }
         } catch (SQLException | IOException e) {
             e.printStackTrace();
-            if (conn != null) {
-                conn.rollback(); // Rollback en cas d'erreur
-            }
+            if (conn != null) conn.rollback();
         } finally {
-            if (conn != null) {
-                conn.close(); // Fermer la connexion
-            }
+            if (conn != null) conn.close();
         }
     }
+
+    private String cleanValue(String value) {
+        if (value == null) {
+            return "";
+        }
+        // Supprimer les espaces et les guillemets autour de la valeur
+        return value.trim().replaceAll("^\"|\"$", "");
+    }
+
 }
 
