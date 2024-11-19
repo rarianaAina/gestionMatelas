@@ -1,49 +1,66 @@
 package itu.station.kidoro;
 
 import utilitaire.UtilDB;
-
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Main {
+
+    // Créer un logger pour gérer les erreurs
+    private static final Logger logger = Logger.getLogger(Main.class.getName());
 
     public static void main(String[] args) {
         // Créer une instance de UtilDB pour obtenir la connexion
         UtilDB utilDB = new UtilDB();
-        Connection conn = null;
 
-        // Si la connexion n'existe pas, obtenir une nouvelle connexion à la base de données
-        if (conn == null) {
-            conn = utilDB.GetConn("mystation", "mystation");
-        }
+        // Utiliser try-with-resources pour gérer la connexion automatiquement
+        try (Connection conn = utilDB.GetConn("mystation", "mystation")) {
 
-        // Données pour les 4 premières lignes à insérer via le formulaire
-        double[] longueurs = {22.0, 23.5, 21.0, 24.0};  // Longueurs des 4 blocs
-        double[] largeurs = {5.5, 6.0, 5.8, 6.2};     // Largeurs des 4 blocs
-        double[] hauteurs = {12.0, 14.0, 13.5, 11.5};  // Hauteurs des 4 blocs
-        double[] prixReviendPRA = {15.0, 13.5, 14.0, 16.0};  // Prix de revient des 4 blocs
+            // Récupérer la liste des machines dans la table 'machines'
+            String queryMachines = "SELECT idMachine FROM machines"; // Assurez-vous que 'machines' contient bien l'ID des machines
+            try (PreparedStatement psMachines = conn.prepareStatement(queryMachines);
+                 ResultSet rsMachines = psMachines.executeQuery()) {
 
-        // Essayer d'exécuter l'insertion des 4 premières lignes
-        try {
-            // Créer une instance de BlocsVaovao
-            BlocsVaovao blocVaovao = new BlocsVaovao();
+                // Pour chaque machine, récupérer et afficher le prix de revient
+                while (rsMachines.next()) {
+                    String idMachine = rsMachines.getString("idMachine");
 
-            // Insertion des 4 premières lignes dans la table BLOCSVAOVAO
-            blocVaovao.insererBlocs(conn, longueurs, largeurs, hauteurs, prixReviendPRA);
+                    // Récupérer et afficher le prix de revient pour cette machine
+                    double prixTotalMachine = prixDeReviensParMachine(conn, idMachine);
+                    System.out.println("Le prix de revient pour la machine " + idMachine + " est : " + prixTotalMachine);
+                }
+            }
 
-            System.out.println("Les 4 premières lignes ont été insérées avec succès !");
         } catch (SQLException e) {
             // Gérer les exceptions liées à la base de données
-            e.printStackTrace();
-        } finally {
-            // Fermer la connexion à la base de données si elle est ouverte
-            try {
-                if (conn != null && !conn.isClosed()) {
-                    conn.close();
+            logger.log(Level.SEVERE, "Erreur lors de la récupération des prix de revient des machines", e);
+        }
+    }
+
+    // La méthode pour calculer le prix de revient pour chaque machine
+    public static double prixDeReviensParMachine(Connection conn, String idMachine) throws SQLException {
+        double prixTotal = 0.0;
+
+        // Requête pour sommer les prix de revient associés à chaque idMachine
+        String queryPrixTotalMachine =
+                "SELECT SUM(PRIX_REVIENT) AS PrixTotal " +
+                        "FROM BLOCSVAOVAO " +
+                        "WHERE IDSOURCE = ?";  // Assurez-vous que la table BLOCSVAOVAO contient une colonne 'IDMACHINE'
+
+        try (PreparedStatement ps = conn.prepareStatement(queryPrixTotalMachine)) {
+            ps.setString(1, idMachine);  // L'ID de la machine
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    prixTotal = rs.getDouble("PrixTotal");
                 }
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
         }
+
+        return prixTotal;
     }
 }
