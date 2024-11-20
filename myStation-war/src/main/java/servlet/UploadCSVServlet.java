@@ -84,7 +84,13 @@ public class UploadCSVServlet extends HttpServlet {
                     String[] values = line.split(";");
                     try {
                         // Nettoyer et attribuer chaque valeur
-                        pstmt.setString(1, cleanValue(values[0])); // IDBLOCSVAOVAO
+                        String idBlocsVaovao = cleanValue(values[0]);
+                        if (idBlocsVaovao.isEmpty()) {
+                            // Si ID est absent dans le CSV, récupérer la séquence dans la table
+                            idBlocsVaovao = getNextIdBlocsVaovao(conn);
+                        }
+
+                        pstmt.setString(1, idBlocsVaovao); // IDBLOCSVAOVAO
                         pstmt.setDouble(2, Double.parseDouble(cleanValue(values[1]))); // LONGUEUR
                         pstmt.setDouble(3, Double.parseDouble(cleanValue(values[2]))); // LARGEUR
                         pstmt.setDouble(4, Double.parseDouble(cleanValue(values[3]))); // HAUTEUR
@@ -121,5 +127,16 @@ public class UploadCSVServlet extends HttpServlet {
         return value.trim().replaceAll("^\"|\"$", "");
     }
 
+    private String getNextIdBlocsVaovao(Connection conn) throws SQLException {
+        // Récupérer la prochaine valeur de la séquence IDBLOCSVAOVAO
+        String query = "SELECT BLOCSVAOVAO_SEQ.NEXTVAL FROM DUAL";
+        try (PreparedStatement ps = conn.prepareStatement(query);
+             ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return String.valueOf(rs.getInt(1));
+            } else {
+                throw new SQLException("Impossible de récupérer la prochaine valeur de la séquence.");
+            }
+        }
+    }
 }
-

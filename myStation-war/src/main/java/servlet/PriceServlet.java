@@ -38,7 +38,7 @@ public class PriceServlet extends HttpServlet {
                     machineData.put("prixPratique", prixPratiqueMachine);
 
                     // Calculer l'écart et ajouter à la map
-                    double ecart = prixPratiqueMachine - prixTotalMachine;
+                    double ecart = prixTotalMachine - prixPratiqueMachine;
                     machineData.put("ecart", ecart);
 
                     prixMachines.add(machineData);

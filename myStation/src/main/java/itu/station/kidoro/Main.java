@@ -1,53 +1,6 @@
-/*
 package itu.station.kidoro;
 
 import utilitaire.UtilDB;
-
-import java.sql.*;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-public class Main {
-
-    public static void main(String[] args) {
-        // Exemple de longueurs, largeurs, hauteurs et prixReviendPRA
-        double[] longueurs = {25, 30, 35, 40};  // Dimensions de test
-        double[] largeurs = {6, 7, 8, 9};
-        double[] hauteurs = {12, 13, 14, 15};
-        double[] prixReviendPRA = {10000.0, 15000.0, 20000.0, 25000.0};  // Prix de revient pratique
-
-        // Connexion à la base de données
-        Connection conn = null;
-        try {
-            // Obtenir la connexion via UtilDB ou autre méthode
-            conn = new UtilDB().GetConn("mystation", "mystation");
-
-            // Créer une instance de BlocsVaovao pour appeler la méthode insererBlocs
-            BlocsVaovao blocsVaovao = new BlocsVaovao();
-
-            // Appeler la fonction insererBlocs
-            blocsVaovao.insererBlocs(conn, longueurs, largeurs, hauteurs, prixReviendPRA);
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            // Assurez-vous de fermer la connexion après l'utilisation
-            if (conn != null) {
-                try {
-                    conn.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-}*/
-
-package itu.station.kidoro;
-
-import utilitaire.UtilDB;
-
 import java.sql.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -65,7 +18,7 @@ public class Main {
         try (Connection conn = utilDB.GetConn("mystation", "mystation")) {
 
             // Récupérer la liste des blocs dans la table 'BLOCSVAOVAO'
-            String queryBlocs = "SELECT IDBLOCSVAOVAO, DATE_FABRICATION FROM BLOCSVAOVAO";
+            String queryBlocs = "SELECT IDBLOCSVAOVAO, DATE_FABRICATION FROM BLOCSVAOVAO ORDER BY DATE_FABRICATION, HEURE_FABRICATION";
             try (PreparedStatement psBlocs = conn.prepareStatement(queryBlocs);
                  ResultSet rsBlocs = psBlocs.executeQuery()) {
 
@@ -74,12 +27,24 @@ public class Main {
                     String idBloc = rsBlocs.getString("IDBLOCSVAOVAO");
                     Date dateFabrication = rsBlocs.getDate("DATE_FABRICATION");
 
-                    // Calculer le prix de revient pour ce bloc en appelant la méthode existante dans BlocsVaovao
-                    double prixRevient = BlocsVaovao.calculerPrixRevientBloc(conn, dateFabrication, idBloc);
-                    System.out.println("Prix de revient pour le bloc " + idBloc + " : " + prixRevient);
+                    try {
+                        // Calculer le prix de revient et mettre à jour les quantités
+                        double prixRevient = BlocsVaovao.calculerEtMettreAJourQuantites(conn, idBloc, dateFabrication);
 
-                    // Mettre à jour le prix de revient dans la base de données en appelant la méthode existante dans BlocsVaovao
-                    BlocsVaovao.mettreAJourPrixRevientBloc(conn);
+                        // Mettre à jour le prix de revient dans la table 'BLOCSVAOVAO'
+                        String updateQuery = "UPDATE BLOCSVAOVAO SET prix_revient = ? WHERE IDBLOCSVAOVAO = ?";
+                        try (PreparedStatement psUpdate = conn.prepareStatement(updateQuery)) {
+                            psUpdate.setDouble(1, prixRevient);
+                            psUpdate.setString(2, idBloc);
+                            psUpdate.executeUpdate();
+                        }
+
+                        System.out.println("Prix de revient pour le bloc " + idBloc + " : " + prixRevient);
+
+                    } catch (IllegalArgumentException ex) {
+                        // Si une exception personnalisée est levée, ignorer ce bloc et passer au suivant
+                        System.err.println("Erreur pour le bloc " + idBloc + ": " + ex.getMessage());
+                    }
                 }
             }
 
@@ -89,4 +54,3 @@ public class Main {
         }
     }
 }
-

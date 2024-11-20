@@ -140,100 +140,123 @@ public class BlocsVaovao extends ClassMAPTable {
         return (BlocsVaovao[]) CGenUtil.rechercher(new BlocsVaovao(), null, null, c, "");
     }
         // Méthode statique pour calculer le prix de revient d'un bloc, en prenant en compte les quantités et les dates
-        public static double calculerPrixRevientBloc(Connection conn, Date dateFabrication, String idBloc) throws SQLException {
-            double prixRevientTotal = 0.0;
 
-            // Requête pour récupérer le volume du bloc et l'heure de fabrication (heure_fabrication est un VARCHAR)
-            String queryVolumeBloc = "SELECT Volume, heure_fabrication FROM BlocsVaovao WHERE IDBLOCSVAOVAO = ?";
-            double volumeBloc = 0.0;
-            String heureFabricationBloc = null; // Heure de fabrication sous forme de chaîne (VARCHAR)
-            try (PreparedStatement psVolumeBloc = conn.prepareStatement(queryVolumeBloc)) {
-                psVolumeBloc.setString(1, idBloc);
-                try (ResultSet rsVolumeBloc = psVolumeBloc.executeQuery()) {
-                    if (rsVolumeBloc.next()) {
-                        volumeBloc = rsVolumeBloc.getDouble("Volume");
-                        System.out.println(volumeBloc);
-                        heureFabricationBloc = rsVolumeBloc.getString("heure_fabrication"); // Heure de fabrication du bloc
-                        System.out.println(heureFabricationBloc);
-                    } else {
-                        throw new SQLException("Volume ou heure de fabrication introuvable pour l'idBloc: " + idBloc);
+    public static void mettreAJourPrixRevient(Connection conn, Date dateFabrication) throws SQLException {
+        // 1. Trier la table `BlocsVaovao` par date et heure pour déterminer l'ordre des fabrications
+        String queryBlocs = "SELECT IDBLOCSVAOVAO, heure_fabrication FROM BlocsVaovao WHERE date_fabrication = ? ORDER BY date_fabrication ASC, heure_fabrication ASC";
+        try (PreparedStatement psBlocs = conn.prepareStatement(queryBlocs)) {
+            psBlocs.setDate(1, dateFabrication);
+
+            try (ResultSet rsBlocs = psBlocs.executeQuery()) {
+                while (rsBlocs.next()) {
+                    String idBloc = rsBlocs.getString("IDBLOCSVAOVAO");
+
+                    // 2. Calculer le prix de revient pour le bloc courant et ajuster les quantités dans Achats
+                    double prixRevientBloc = calculerEtMettreAJourQuantites(conn, idBloc, dateFabrication);
+
+                    // 3. Mettre à jour la table `BlocsVaovao` avec le prix de revient
+                    String updatePrixRevientQuery = "UPDATE BlocsVaovao SET prix_revient = ? WHERE IDBLOCSVAOVAO = ?";
+                    try (PreparedStatement psUpdate = conn.prepareStatement(updatePrixRevientQuery)) {
+                        psUpdate.setDouble(1, prixRevientBloc);
+                        psUpdate.setString(2, idBloc);
+                        psUpdate.executeUpdate();
                     }
                 }
             }
+        }
+    }
 
-            // Requête pour récupérer tous les blocs fabriqués à la même date que le bloc cible, triés par date et heure
-            String queryBlocsParDate = "SELECT IDBLOCSVAOVAO, Volume, heure_fabrication " +
-                    "FROM BlocsVaovao " +
-                    "WHERE TRUNC(date_fabrication) = ? " + // Comparaison de la date (Oracle)
-                    "ORDER BY date_fabrication ASC, heure_fabrication ASC";
-            // Trier d'abord par date, puis par heure
+    static double calculerEtMettreAJourQuantites(Connection conn, String idBloc, Date dateFabrication) throws SQLException {
+        double prixRevientTotal = 0.0;
 
-            // Liste pour stocker les blocs fabriqués à la même date
-            List<BlockInfo> blocsAvecDate = new ArrayList<>();
-
-            try (PreparedStatement psBlocsParDate = conn.prepareStatement(queryBlocsParDate)) {
-                psBlocsParDate.setDate(1, dateFabrication); // Paramètre de la date de fabrication du bloc
-                System.out.println(queryBlocsParDate);
-                try (ResultSet rsBlocsParDate = psBlocsParDate.executeQuery()) {
-                    while (rsBlocsParDate.next()) {
-                        String idBlocParDate = rsBlocsParDate.getString("IDBLOCSVAOVAO");
-                        double volumeParDate = rsBlocsParDate.getDouble("Volume");
-                        String heureFabricationParDate = rsBlocsParDate.getString("heure_fabrication");
-
-                        // Ajouter les blocs à la liste
-                        blocsAvecDate.add(new BlockInfo(idBlocParDate, volumeParDate, heureFabricationParDate));
-                    }
+        // Requête pour récupérer le volume du bloc
+        String queryVolumeBloc = "SELECT Volume FROM BlocsVaovao WHERE IDBLOCSVAOVAO = ?";
+        double volumeBloc;
+        try (PreparedStatement psVolumeBloc = conn.prepareStatement(queryVolumeBloc)) {
+            psVolumeBloc.setString(1, idBloc);
+            try (ResultSet rsVolumeBloc = psVolumeBloc.executeQuery()) {
+                if (rsVolumeBloc.next()) {
+                    volumeBloc = rsVolumeBloc.getDouble("Volume");
+                } else {
+                    throw new SQLException("Volume introuvable pour l'idBloc: " + idBloc);
                 }
             }
+        }
 
-            // Requête pour récupérer les composants nécessaires pour la fabrication du bloc
-            String queryComposants = "SELECT idComposants, qte FROM Composants";
-            try (PreparedStatement psComposants = conn.prepareStatement(queryComposants);
-                 ResultSet rsComposants = psComposants.executeQuery()) {
+        // Récupérer les composants associés à ce bloc
+        String queryComposants = "SELECT idComposants, qte FROM Composants";
+        try (PreparedStatement psComposants = conn.prepareStatement(queryComposants);
+             ResultSet rsComposants = psComposants.executeQuery()) {
 
-                // Pour chaque composant, récupérer les achats et calculer le prix de revient
-                while (rsComposants.next()) {
-                    String idComposant = rsComposants.getString("idComposants");
-                    int qteNecessaire = rsComposants.getInt("qte");
+            while (rsComposants.next()) {
+                String idComposant = rsComposants.getString("idComposants");
+                double qteNecessaire = rsComposants.getDouble("qte");
+                double qteTenaNec = qteNecessaire * volumeBloc;
 
-                    // Calculer le prix de revient pour ce composant
-                    double prixComposant = 0.0;
-                    int qteRestante = qteNecessaire;
+                // Étape 1 : Validation des quantités disponibles
+                String queryValidation = "SELECT SUM(qte) AS totalQte FROM Achats WHERE idComposants = ? AND DateAchat <= ?";
+                double totalQteDisponible;
+                try (PreparedStatement psValidation = conn.prepareStatement(queryValidation)) {
+                    psValidation.setString(1, idComposant);
+                    psValidation.setDate(2, dateFabrication);
+                    try (ResultSet rsValidation = psValidation.executeQuery()) {
+                        if (rsValidation.next()) {
+                            totalQteDisponible = rsValidation.getDouble("totalQte");
+                        } else {
+                            totalQteDisponible = 0.0;
+                        }
+                    }
+                }
 
-                    // Requête pour récupérer les achats disponibles pour ce composant avant ou à la date de fabrication du bloc
-                    String queryAchats = "SELECT PUAchat, qte, DateAchat FROM Achats WHERE idComposants = ? AND DateAchat <= ? ORDER BY DateAchat ASC, DateAchat DESC";
-                    try (PreparedStatement psAchats = conn.prepareStatement(queryAchats)) {
-                        psAchats.setString(1, idComposant);
-                        psAchats.setDate(2, dateFabrication); // Date de fabrication du bloc
+                // Si la quantité est insuffisante, passer au bloc suivant
+                if (totalQteDisponible < qteTenaNec) {
+                    System.out.println("Quantité insuffisante pour le composant " + idComposant + ". Passer au bloc suivant.");
+                    break; // Passer au bloc suivant
+                }
 
-                        try (ResultSet rsAchats = psAchats.executeQuery()) {
-                            // Traiter les achats successifs pour ce composant
-                            while (rsAchats.next() && qteRestante > 0) {
-                                double prixAchat = rsAchats.getDouble("PUAchat");
-                                int qteAchetee = rsAchats.getInt("qte");
+                // Étape 2 : Mise à jour des quantités dans les achats
+                String queryAchats = "SELECT idAchat, PUAchat, qte FROM Achats WHERE idComposants = ? AND DateAchat <= ? ORDER BY DateAchat ASC";
+                double prixComposant = 0.0;
+                double qteRestante = qteTenaNec;
 
-                                // Si la quantité achetée est suffisante pour couvrir la quantité restante
-                                if (qteAchetee >= qteRestante) {
-                                    prixComposant += prixAchat * qteRestante;
-                                    qteRestante = 0; // La quantité nécessaire est maintenant satisfaite
-                                } else {
-                                    prixComposant += prixAchat * qteAchetee;
-                                    qteRestante -= qteAchetee; // Réduire la quantité restante
+                try (PreparedStatement psAchats = conn.prepareStatement(queryAchats)) {
+                    psAchats.setString(1, idComposant);
+                    psAchats.setDate(2, dateFabrication);
+                    try (ResultSet rsAchats = psAchats.executeQuery()) {
+                        while (rsAchats.next() && qteRestante > 0) {
+                            String idAchat = rsAchats.getString("idAchat");
+                            double prixAchat = rsAchats.getDouble("PUAchat");
+                            double qteAchetee = rsAchats.getDouble("qte");
+
+                            if (qteAchetee >= qteRestante) {
+                                prixComposant += prixAchat * qteRestante;
+                                // Mise à jour de la quantité restante
+                                String updateAchatQuery = "UPDATE Achats SET qte = qte - ? WHERE idAchat = ?";
+                                try (PreparedStatement psUpdateAchat = conn.prepareStatement(updateAchatQuery)) {
+                                    psUpdateAchat.setDouble(1, qteRestante);
+                                    psUpdateAchat.setString(2, idAchat);
+                                    psUpdateAchat.executeUpdate();
                                 }
+                                qteRestante = 0;
+                            } else {
+                                prixComposant += prixAchat * qteAchetee;
+                                String updateAchatQuery = "UPDATE Achats SET qte = 0 WHERE idAchat = ?";
+                                try (PreparedStatement psUpdateAchat = conn.prepareStatement(updateAchatQuery)) {
+                                    psUpdateAchat.setString(1, idAchat);
+                                    psUpdateAchat.executeUpdate();
+                                }
+                                qteRestante -= qteAchetee;
                             }
                         }
                     }
-
-                    // Ajuster le prix du composant en fonction du volume du bloc
-                    prixComposant *= volumeBloc;
-
-                    // Ajouter le prix de ce composant au prix total du bloc
-                    prixRevientTotal += prixComposant;
                 }
-            }
 
-            return prixRevientTotal;
+                prixRevientTotal += prixComposant;
+            }
         }
+
+        return prixRevientTotal;
+    }
 
     // Classe interne pour stocker les informations du bloc (ID, volume, heure de fabrication)
     private static class BlockInfo {
@@ -276,7 +299,7 @@ public class BlocsVaovao extends ClassMAPTable {
 
         // Insérer les 4 premières lignes
         double prixRevientMoyenne = insererPremieresLignes(conn, longueurs, largeurs, hauteurs, prixReviendPRA);
-
+        System.out.println(prixRevientMoyenne);
         // Récupérer tous les idMachines
         List<String> idMachines = new ArrayList<>();
         String selectMachinesQuery = "SELECT IDMACHINE FROM MACHINES";
@@ -300,7 +323,7 @@ public class BlocsVaovao extends ClassMAPTable {
             LocalDate today = LocalDate.now();
             long totalDays = today.toEpochDay() - startDate.toEpochDay();
 
-            for (int i = 0; i < 999996; i++) {
+            for (int i = 0; i < 10; i++) {
                 // Dimensions aléatoires
                 double longueur = 20 + (random.nextDouble() * 5);
                 double largeur = 5 + (random.nextDouble() * 2);
@@ -309,7 +332,7 @@ public class BlocsVaovao extends ClassMAPTable {
                 // Volume et prix
                 double volume = longueur * largeur * hauteur;
                 double variation = 1 + (random.nextDouble() * 0.2 - 0.1);
-                double prixRevientPra = prixRevientMoyenne * variation;
+                double prixRevientPra = prixRevientMoyenne * variation * volume;
 
                 // Générer une date aléatoire entre 2022 et aujourd'hui
                 LocalDate randomDate = startDate.plusDays(random.nextInt((int) totalDays + 1));
@@ -341,8 +364,8 @@ public class BlocsVaovao extends ClassMAPTable {
         }
     }
 
-    double insererPremieresLignes(Connection conn, double[] longueurs, double[] largeurs, double[] hauteurs, double[] prixReviendPRA) throws SQLException {
-        if (longueurs.length != 4 || largeurs.length != 4 || hauteurs.length != 4 || prixReviendPRA.length != 4) {
+    double insererPremieresLignes(Connection conn, double[] longueurs, double[] largeurs, double[] hauteurs, double[] prixRevientPRA) throws SQLException {
+        if (longueurs.length != 4 || largeurs.length != 4 || hauteurs.length != 4 || prixRevientPRA.length != 4) {
             throw new IllegalArgumentException("Les tableaux doivent contenir 4 éléments.");
         }
 
@@ -360,7 +383,8 @@ public class BlocsVaovao extends ClassMAPTable {
         }
 
         Random random = new Random();
-        double prixRevientMoyenne = 0.0;
+        double prixRevientTotal = 0.0;
+        double volumeTotal = 0.0;
 
         String insertQuery = "INSERT INTO BLOCSVAOVAO (IDBLOCSVAOVAO, LONGUEUR, LARGEUR, HAUTEUR, VOLUME, PRIX_REVIENT, DATE_FABRICATION, HEURE_FABRICATION, IDSOURCE, PRIX_REVIENT_PRA) "
                 + "VALUES (blocsvaovao_seq.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -374,10 +398,11 @@ public class BlocsVaovao extends ClassMAPTable {
                 double longueur = longueurs[i];
                 double largeur = largeurs[i];
                 double hauteur = hauteurs[i];
-                double prixRevientPra = prixReviendPRA[i];
+                double prixRevientPra = prixRevientPRA[i];
 
                 double volume = longueur * largeur * hauteur;
-                prixRevientMoyenne += prixRevientPra;
+                prixRevientTotal += prixRevientPra;  // Calculer le total du prix de revient pondéré par le volume
+                volumeTotal += volume;  // Ajouter au volume total
 
                 // Date et heure aléatoires
                 LocalDate randomDate = startDate.plusDays(random.nextInt((int) totalDays + 1));
@@ -400,77 +425,15 @@ public class BlocsVaovao extends ClassMAPTable {
             ps.executeBatch();
         }
 
-        return prixRevientMoyenne / 4.0;
-    }
-    public static void mettreAJourPrixRevientBloc(Connection conn) throws SQLException {
-        String queryBlocs = "SELECT IDBLOCSVAOVAO, DATE_FABRICATION FROM BLOCSVAOVAO";
-        int batchSize = 100; // Nombre de mises à jour par lot
-
-        // Début de la transaction
-        conn.setAutoCommit(false);
-
-        try (PreparedStatement psBlocs = conn.prepareStatement(queryBlocs);
-             ResultSet rsBlocs = psBlocs.executeQuery()) {
-
-            // Préparer la requête de mise à jour avec batch
-            String updateQuery = "UPDATE BLOCSVAOVAO SET PRIX_REVIENT = ? WHERE IDBLOCSVAOVAO = ?";
-            try (PreparedStatement psUpdate = conn.prepareStatement(updateQuery)) {
-
-                int count = 0; // Compteur pour le batch
-                while (rsBlocs.next()) {
-                    String idBloc = rsBlocs.getString("IDBLOCSVAOVAO");
-                    Date dateFabrication = rsBlocs.getDate("DATE_FABRICATION");
-                    double prixRevient = calculerPrixRevientBloc(conn, dateFabrication, idBloc);
-                    System.out.println("Prix de revient pour le bloc " + idBloc + " : " + prixRevient);
-                    try {
-                        // Vérifier que la date de fabrication est valide
-                        if (dateFabrication == null) {
-                            System.err.println("Date de fabrication nulle pour le bloc " + idBloc);
-                            continue; // Passer ce bloc si la date est nulle
-                        }
-
-                        // Calculer le prix de revient pour ce bloc
-
-
-                        // Ajouter la mise à jour dans le batch
-                        psUpdate.setDouble(1, prixRevient);
-                        psUpdate.setString(2, idBloc);
-                        psUpdate.addBatch();
-
-                        if (++count % batchSize == 0) {
-                            psUpdate.executeBatch(); // Exécuter le batch
-                        }
-                    } catch (SQLException e) {
-                        System.out.println("Requête SQL : " + updateQuery);
-                        // Gérer les erreurs spécifiques au bloc
-                        System.err.println("Erreur lors du calcul ou de la mise à jour du prix de revient pour le bloc " + idBloc + ": " + e.getMessage());
-                        // Gérer ou ignorer selon la logique métier (par exemple, peut-être une valeur par défaut pour le prix)
-                    }
-                }
-
-                // Exécuter le reste des mises à jour en batch
-                psUpdate.executeBatch();
-
-                // Valider la transaction
-                conn.commit();
-
-            } catch (SQLException e) {
-                // Si une erreur se produit dans le batch, rollback la transaction
-                conn.rollback();
-                System.err.println("Erreur lors de la mise à jour des prix de revient. La transaction a été annulée.");
-                throw e; // Relever l'exception après rollback
-            }
-
-        } catch (SQLException e) {
-            // Rollback si une erreur se produit avant d'atteindre la mise à jour
-            conn.rollback();
-            System.err.println("Erreur lors de la récupération des blocs. La transaction a été annulée.");
-            throw e; // Relever l'exception après rollback
-        } finally {
-            // Réinitialiser le mode de commit à la normale
-            conn.setAutoCommit(true);
+        // Calculer le prix de revient moyen en fonction du volume total
+        if (volumeTotal == 0) {
+            throw new ArithmeticException("La somme des volumes des 4 blocs est égale à zéro, impossible de calculer le prix de revient.");
         }
+        System.out.println(prixRevientTotal);
+        System.out.println(volumeTotal);
+        return prixRevientTotal / volumeTotal;  // Diviser par la somme des volumes
     }
+
 
     public static Map<String, Double> calculerPrixTotalParSource(Connection conn) throws SQLException {
         Map<String, Double> prixTotalParSource = new HashMap<>();
